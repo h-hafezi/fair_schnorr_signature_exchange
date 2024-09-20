@@ -1,7 +1,7 @@
 use std::ops::Add;
 use std::ops::Mul;
 
-use ark_ec::{Group};
+use ark_ec::{CurveConfig, Group};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_std::UniformRand;
@@ -50,7 +50,7 @@ where
 {
     pub fn new(verifier: &Verifier<G1>, n: usize) -> FDEVerifier<G1> {
         FDEVerifier {
-            pk: verifier.get_public_key(),
+            pk: verifier.pk.clone(),
             g: verifier.get_generator(),
             n,
         }
@@ -61,6 +61,8 @@ where
                                message: Vec<Vec<u8>>,
                                rng: &mut R,
     ) -> (FDEVerifierSecretRandomness<G1>, FDEVerifierFirstRoundMessage<G1>)
+    where
+        <G1 as CurveConfig>::BaseField: PrimeField,
     {
         let alpha = G1::ScalarField::rand(rng);
         let beta = G1::ScalarField::rand(rng);

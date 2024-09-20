@@ -1,5 +1,6 @@
 use std::ops::{Add, Mul};
 
+use ark_ec::CurveConfig;
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_std::UniformRand;
@@ -45,7 +46,7 @@ where
 {
     pub fn new(verifier: &Verifier<G1>) -> Self {
         BSVerifier {
-            pk: verifier.get_public_key(),
+            pk: verifier.pk.clone(),
             g: verifier.get_generator(),
         }
     }
@@ -55,13 +56,15 @@ where
                                message: Vec<u8>,
                                rng: &mut R,
     ) -> (BSVerifierSecretRandomness<G1>, BSVerifierFirstRoundMessage<G1>)
+    where
+        <G1 as CurveConfig>::BaseField: PrimeField,
     {
         let alpha = G1::ScalarField::rand(rng);
         let beta = G1::ScalarField::rand(rng);
 
         // R' = R * g^{alpha} * pk^{beta}
         let r_g_prime: Projective<G1> = {
-            let mut temp = self.g.mul(alpha);
+            let mut temp: Projective<G1> = self.g.mul(alpha);
             temp = temp.add(self.pk.pk.mul(beta));
             temp = temp.add(m1.r_g);
             temp
@@ -90,7 +93,7 @@ where
 
         // R' = R * g^{alpha} * pk^{beta}
         let r_g_prime: Projective<G1> = {
-            let mut temp = self.g.mul(secret_randomness.alpha);
+            let mut temp: Projective<G1> = self.g.mul(secret_randomness.alpha);
             temp = temp.add(self.pk.pk.mul(secret_randomness.beta));
             temp = temp.add(m1.r_g);
             temp

@@ -1,6 +1,6 @@
 use std::ops::Mul;
 
-use ark_ec::{Group};
+use ark_ec::{CurveConfig, Group};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_std::UniformRand;
@@ -46,7 +46,10 @@ where
         self.sk.clone()
     }
 
-    pub(crate) fn sign<R: Rng>(&self, message: &Vec<u8>, rng: &mut R) -> Signature<G1> {
+    pub(crate) fn sign<R: Rng>(&self, message: &Vec<u8>, rng: &mut R) -> Signature<G1>
+    where
+        <G1 as CurveConfig>::BaseField: PrimeField,
+    {
         // Random nonce
         let r = G1::ScalarField::rand(rng);
         // R = g^r

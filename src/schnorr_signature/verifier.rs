@@ -1,6 +1,6 @@
 use std::ops::Mul;
 
-use ark_ec::{Group};
+use ark_ec::{CurveConfig, Group};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 
@@ -40,11 +40,14 @@ where
         self.g.clone()
     }
 
-    pub fn get_public_key(&self) -> PublicKey<G1> {
-        self.pk.clone()
+    pub fn get_public_key(&self) -> Projective<G1> {
+        self.pk.pk.clone()
     }
 
-    pub fn verify(&self, message: &Vec<u8>, signature: Signature<G1>) -> bool {
+    pub fn verify(&self, message: &Vec<u8>, signature: Signature<G1>) -> bool
+    where
+        <G1 as CurveConfig>::BaseField: PrimeField,
+    {
         // Serialize R', the message, and the public key
         let c: G1::ScalarField = {
             let mut bytes = group_element_into_bytes::<G1>(&signature.r_g);
@@ -54,7 +57,7 @@ where
 
         // Check if the recomputed e' matches the provided e
         self.g.clone().mul(signature.s) == {
-            signature.r_g + self.pk.pk.clone().mul(c)
+            signature.r_g + self.get_public_key().mul(c)
         }
     }
 }
