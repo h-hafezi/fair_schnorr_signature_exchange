@@ -14,13 +14,11 @@ impl Hash256 {
 
 #[cfg(test)]
 mod tests {
-    use crate::constant_for_curves::ScalarField;
     use crate::hash::Hash256;
-
-    type F = ScalarField;
+    use ark_bn254::Fr;
 
     #[test]
     fn test_hash() {
-        println!("{}", Hash256::hash_bytes::<F>(&[0u8, 0u8, 0u8, 0u8]));
+        println!("{}", Hash256::hash_bytes::<Fr>(&[0u8, 0u8, 0u8, 0u8]));
     }
 }

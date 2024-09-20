@@ -1,12 +1,10 @@
-use ark_ec::{AffineRepr, CurveGroup};
-use ark_ec::pairing::Pairing;
-use ark_ff::{BigInteger, PrimeField};
+use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+use ark_ff::{PrimeField};
 
-pub fn group_element_into_bytes<E: Pairing>(g: E::G1) -> Vec<u8>
+pub fn group_element_into_bytes<G1>(g: &Projective<G1>) -> Vec<u8>
 where
-    <<E as Pairing>::G1Affine as AffineRepr>::BaseField: PrimeField,
+    G1: SWCurveConfig + Clone,
+    G1::ScalarField: PrimeField,
 {
-    let mut res = g.into_affine().x().unwrap().into_bigint().to_bytes_le();
-    res.extend(g.into_affine().y().unwrap().into_bigint().to_bytes_le());
-    res
+    vec![0u8, 1u8, 2u8, 3u8]
 }

@@ -1,10 +1,15 @@
-use ark_ec::pairing::Pairing;
+use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+use ark_ff::PrimeField;
 
 /// Signature structure
-pub struct Signature<E: Pairing> {
+pub struct Signature<G1>
+where
+    G1: SWCurveConfig + Clone,
+    G1::ScalarField: PrimeField,
+{
     /// R = g^r
-    pub r_g: E::G1,
+    pub r_g: Projective<G1>,
 
     /// s = r + H(R, m) * sk
-    pub s: E::ScalarField,
+    pub s: G1::ScalarField,
 }

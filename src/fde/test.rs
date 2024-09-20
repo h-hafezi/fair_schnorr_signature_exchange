@@ -2,12 +2,12 @@
 mod tests {
     use rand::thread_rng;
 
-    use crate::constant_for_curves::E;
     use crate::fde::signer::FDESigner;
     use crate::fde::verifier::FDEVerifier;
     use crate::schnorr_signature::key::{generate_key_pair, PublicKey, SecretKey};
     use crate::schnorr_signature::signer::Signer;
     use crate::schnorr_signature::verifier::Verifier;
+    use ark_bn254::g1::Config;
 
     #[test]
     fn test_schnorr_signature() {
@@ -17,7 +17,7 @@ mod tests {
             temp.push([0u8, 1u8, 2u8, 3u8].to_vec());
             temp
         };
-        let (sk, pk): (SecretKey<E>, PublicKey<E>) = generate_key_pair(&mut thread_rng());
+        let (sk, pk): (SecretKey<Config>, PublicKey<Config>) = generate_key_pair(&mut thread_rng());
 
         // non-blind signer/verifier
         let signer = Signer::new(sk);
@@ -29,7 +29,7 @@ mod tests {
 
         // interaction
         let (signer_secret_randomness, m1) = fde_signer.first_round(&mut thread_rng());
-        let (verifier_secret_randomness, m2) = fde_verifier.first_round(&m1, message, &mut thread_rng());
+        let (_, m2) = fde_verifier.first_round(&m1, message, &mut thread_rng());
         let m3 = fde_signer.second_round(signer_secret_randomness, m2.clone(), &mut thread_rng());
 
         assert!(fde_verifier.second_round(&m1, &m2, &m3));
