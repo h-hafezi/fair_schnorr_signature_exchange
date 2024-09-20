@@ -1,26 +1,32 @@
-/*use std::ops::Mul;
-use ark_ec::AffineRepr;
+use std::ops::Add;
+use std::ops::Mul;
+
+use ark_ec::{AffineRepr, Group};
 use ark_ec::pairing::Pairing;
 use ark_ff::PrimeField;
 use ark_std::UniformRand;
 use rand::Rng;
+
+use crate::fde::signer::{FDESignerFirstRoundMessage, FDESignerSecondRoundMessage};
 use crate::hash::Hash256;
 use crate::schnorr_signature::key::PublicKey;
 use crate::schnorr_signature::util::group_element_into_bytes;
 use crate::schnorr_signature::verifier::Verifier;
-use std::ops::Add;
 
+#[derive(Clone, Debug, Default)]
 pub struct FDEVerifier<E: Pairing> {
     pub pk: PublicKey<E>,
     pub g: E::G1,
     pub n: usize,
 }
 
+#[derive(Clone, Debug, Default)]
 pub struct FDEVerifierSecretRandomness<E: Pairing> {
     pub alpha: E::ScalarField,
     pub beta: E::ScalarField,
 }
 
+#[derive(Clone, Debug, Default)]
 pub struct FDEVerifierFirstRoundMessage<E: Pairing> {
     pub c: Vec<E::ScalarField>,
 }
@@ -38,7 +44,7 @@ impl<E: Pairing> FDEVerifier<E> {
                                m1: &FDESignerFirstRoundMessage<E>,
                                message: Vec<Vec<u8>>,
                                rng: &mut R,
-    ) -> (FDEVerifier<E>, FDEVerifierFirstRoundMessage<E>)
+    ) -> (FDEVerifierSecretRandomness<E>, FDEVerifierFirstRoundMessage<E>)
     where
         <<E as Pairing>::G1Affine as AffineRepr>::BaseField: PrimeField,
     {
@@ -51,7 +57,7 @@ impl<E: Pairing> FDEVerifier<E> {
             let r_g_prime: E::G1 = {
                 let mut temp = self.g.mul(alpha);
                 temp = temp.add(self.pk.pk.mul(beta));
-                temp = temp.add(m1[i].r_g);
+                temp = temp.add(m1.r_g[i]);
                 temp
             };
 
@@ -68,5 +74,29 @@ impl<E: Pairing> FDEVerifier<E> {
 
         (FDEVerifierSecretRandomness { alpha, beta }, FDEVerifierFirstRoundMessage { c: vec_c })
     }
+
+    pub fn second_round(&self,
+                        m1: &FDESignerFirstRoundMessage<E>,
+                        m2: &FDEVerifierFirstRoundMessage<E>,
+                        m3: &FDESignerSecondRoundMessage<E>,
+    ) -> bool
+    where
+        <<E as Pairing>::G1Affine as AffineRepr>::BaseField: PrimeField,
+    {
+        let mut res = true;
+        for i in 0..self.n {
+            // com_i = R_i * pk^c_i
+            let temp = m1.r_g[i].add(self.pk.pk.mul(m2.c[i]));
+            res = res & (m3.com[i] == temp);
+
+            // g^a_i = (com_k * com_i)^{1/2}
+            let mut lhs: E::G1 = {
+                let temp = self.g.mul(m3.alpha[i]);
+                temp.double()
+            };
+            let rhs: E::G1 = m3.com_k.add(m3.com[i]);
+            res = res & (lhs == rhs);
+        }
+        res
+    }
 }
- */
