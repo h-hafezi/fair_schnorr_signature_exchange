@@ -5,7 +5,6 @@ use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_std::UniformRand;
 use rand::Rng;
-
 use crate::hash::Hash256;
 use crate::schnorr_signature::key::SecretKey;
 use crate::schnorr_signature::signature::Signature;

@@ -29,8 +29,8 @@ mod tests {
 
         // interaction
         let (signer_secret_randomness, m1) = fde_signer.first_round(&mut thread_rng());
-        let (_, m2) = fde_verifier.first_round(&m1, message, &mut thread_rng());
-        let m3 = fde_signer.second_round(signer_secret_randomness, m2.clone(), &mut thread_rng());
+        let (_, m2) = fde_verifier.first_round(&m1, &message, &mut thread_rng());
+        let m3 = fde_signer.second_round(&signer_secret_randomness, &m2, &mut thread_rng());
 
         assert!(fde_verifier.second_round(&m1, &m2, &m3));
     }

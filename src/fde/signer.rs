@@ -4,6 +4,8 @@ use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_std::UniformRand;
 use rand::Rng;
+use rayon::iter::ParallelIterator;
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
 
 use crate::fde::verifier::FDEVerifierFirstRoundMessage;
 use crate::schnorr_signature::key::SecretKey;
@@ -63,53 +65,44 @@ where
     }
 
     pub fn first_round<R: Rng>(&self, rng: &mut R) -> (FDESignerSecretRandomness<G1>, FDESignerFirstRoundMessage<G1>) {
-        let mut r = Vec::new();
-        let mut r_g = Vec::new();
+        // Sequential random generation (since rng is not thread-safe)
+        let r: Vec<G1::ScalarField> = (0..self.n).map(|_| G1::ScalarField::rand(rng)).collect();
 
-        for _ in 0..self.n {
-            let r_i = G1::ScalarField::rand(rng);
-            r.push(r_i);
-            r_g.push(self.g.mul(r_i));
-        }
+        // Parallel scalar multiplication using rayon
+        let r_g: Vec<Projective<G1>> = r.par_iter().map(|r_i| self.g.mul(*r_i)).collect();
 
-        // return the tuple of (r, g^r)
+        // Return the tuple of (r, g^r)
         (FDESignerSecretRandomness { r }, FDESignerFirstRoundMessage { r_g })
     }
 
     pub fn second_round<R: Rng>(&self,
-                                secret_randomness: FDESignerSecretRandomness<G1>,
-                                m1: FDEVerifierFirstRoundMessage<G1>,
+                                secret_randomness: &FDESignerSecretRandomness<G1>,
+                                m1: &FDEVerifierFirstRoundMessage<G1>,
                                 rng: &mut R,
     ) -> FDESignerSecondRoundMessage<G1> {
+        // Random generation is kept sequential
         let k = G1::ScalarField::rand(rng);
         let com_k: Projective<G1> = self.g.mul(k);
 
-        let vec_s = {
-            let mut temp = Vec::new();
-            for i in 0..secret_randomness.r.len() {
-                let val: G1::ScalarField = secret_randomness.r[i] + m1.c[i] * self.sk.sk;
-                temp.push(val);
-            }
-            temp
-        };
+        // Parallelize vec_s computation
+        let vec_s: Vec<G1::ScalarField> = (0..secret_randomness.r.len())
+            .into_par_iter()
+            .map(|i| secret_randomness.r[i] + m1.c[i] * self.sk.sk)
+            .collect();
 
-        let vec_g_s = {
-            let mut temp: Vec<Projective<G1>> = Vec::new();
-            for s in vec_s.clone() {
-                temp.push(self.g.mul(s));
-            }
-            temp
-        };
+        // Parallelize vec_g_s computation (g^s)
+        let vec_g_s: Vec<Projective<G1>> = vec_s
+            .par_iter()
+            .map(|s| self.g.mul(*s))
+            .collect();
 
-        let alpha = {
-            let mut temp = Vec::new();
-            for s in vec_s.clone() {
-                let val: G1::ScalarField = (s + k) / G1::ScalarField::from(2u8);
-                temp.push(val);
-            }
-            temp
-        };
+        // Parallelize alpha computation ((s + k) / 2)
+        let alpha: Vec<G1::ScalarField> = vec_s
+            .par_iter()
+            .map(|s| (*s + k) / G1::ScalarField::from(2u8))
+            .collect();
 
+        // Return the second round message
         FDESignerSecondRoundMessage {
             com_k,
             alpha,

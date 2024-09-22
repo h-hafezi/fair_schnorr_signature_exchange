@@ -6,6 +6,8 @@ use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_std::UniformRand;
 use rand::Rng;
+use rayon::iter::ParallelIterator;
+use rayon::prelude::IntoParallelIterator;
 
 use crate::fde::signer::{FDESignerFirstRoundMessage, FDESignerSecondRoundMessage};
 use crate::hash::Hash256;
@@ -58,7 +60,7 @@ where
 
     pub fn first_round<R: Rng>(&self,
                                m1: &FDESignerFirstRoundMessage<G1>,
-                               message: Vec<Vec<u8>>,
+                               message: &Vec<Vec<u8>>,
                                rng: &mut R,
     ) -> (FDEVerifierSecretRandomness<G1>, FDEVerifierFirstRoundMessage<G1>)
     where
@@ -67,8 +69,8 @@ where
         let alpha = G1::ScalarField::rand(rng);
         let beta = G1::ScalarField::rand(rng);
 
-        let mut vec_c = Vec::new();
-        for i in 0..self.n {
+        // Parallelized the computation of vec_c using rayon's par_iter
+        let vec_c: Vec<G1::ScalarField> = (0..self.n).into_par_iter().map(|i| {
             // R' = R * g^{alpha} * pk^{beta}
             let r_g_prime: Projective<G1> = {
                 let mut temp = self.g.mul(alpha);
@@ -84,9 +86,8 @@ where
             };
 
             let c = c_prime + beta;
-
-            vec_c.push(c);
-        }
+            c
+        }).collect();
 
         (FDEVerifierSecretRandomness { alpha, beta }, FDEVerifierFirstRoundMessage { c: vec_c })
     }
@@ -97,11 +98,10 @@ where
                         m3: &FDESignerSecondRoundMessage<G1>,
     ) -> bool
     {
-        let mut res = true;
-        for i in 0..self.n {
+        let res: bool = (0..self.n).into_par_iter().map(|i| {
             // com_i = R_i * pk^c_i
             let temp = m1.r_g[i].add(self.pk.pk.mul(m2.c[i]));
-            res = res & (m3.com[i] == temp);
+            let first_check = m3.com[i] == temp;
 
             // g^a_i = (com_k * com_i)^{1/2}
             let lhs: Projective<G1> = {
@@ -109,8 +109,12 @@ where
                 temp.double()
             };
             let rhs: Projective<G1> = m3.com_k.add(m3.com[i]);
-            res = res & (lhs == rhs);
-        }
+            let second_check = lhs == rhs;
+
+            // Return the result of both checks
+            first_check && second_check
+        }).reduce(|| true, |acc, x| acc && x);
+
         res
     }
 }
