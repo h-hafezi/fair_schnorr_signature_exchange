@@ -1,8 +1,8 @@
 use std::ops::{Add, Mul};
 
-use ark_ec::{AffineRepr, CurveGroup};
-use ark_ec::pairing::Pairing;
-use ark_ff::{Field, PrimeField};
+use ark_ec::CurveConfig;
+use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+use ark_ff::PrimeField;
 use ark_std::UniformRand;
 use rand::Rng;
 
@@ -13,49 +13,65 @@ use crate::schnorr_signature::signature::Signature;
 use crate::schnorr_signature::util::group_element_into_bytes;
 use crate::schnorr_signature::verifier::Verifier;
 
-pub struct BSVerifier<E: Pairing> {
-    pub pk: PublicKey<E>,
-    pub g: E::G1,
+pub struct BSVerifier<G1>
+where
+    G1: SWCurveConfig + Clone,
+    G1::ScalarField: PrimeField,
+{
+    pub pk: PublicKey<G1>,
+    pub g: Projective<G1>,
 }
 
-pub struct BSVerifierSecretRandomness<E: Pairing> {
-    pub alpha: E::ScalarField,
-    pub beta: E::ScalarField,
+pub struct BSVerifierSecretRandomness<G1>
+where
+    G1: SWCurveConfig + Clone,
+    G1::ScalarField: PrimeField,
+{
+    pub alpha: G1::ScalarField,
+    pub beta: G1::ScalarField,
 }
 
-pub struct BSVerifierFirstRoundMessage<E: Pairing> {
-    pub c: E::ScalarField,
+pub struct BSVerifierFirstRoundMessage<G1>
+where
+    G1: SWCurveConfig + Clone,
+    G1::ScalarField: PrimeField,
+{
+    pub c: G1::ScalarField,
 }
 
-impl<E: Pairing> BSVerifier<E> {
-    pub fn new(verifier: &Verifier<E>) -> Self {
+impl<G1> BSVerifier<G1>
+where
+    G1: SWCurveConfig + Clone,
+    G1::ScalarField: PrimeField,
+{
+    pub fn new(verifier: &Verifier<G1>) -> Self {
         BSVerifier {
-            pk: verifier.get_public_key(),
+            pk: verifier.pk.clone(),
             g: verifier.get_generator(),
         }
     }
 
     pub fn first_round<R: Rng>(&self,
-                               m1: &BSSignerFirstRoundMessage<E>,
+                               m1: &BSSignerFirstRoundMessage<G1>,
                                message: Vec<u8>,
                                rng: &mut R,
-    ) -> (BSVerifierSecretRandomness<E>, BSVerifierFirstRoundMessage<E>)
+    ) -> (BSVerifierSecretRandomness<G1>, BSVerifierFirstRoundMessage<G1>)
     where
-        <<E as Pairing>::G1Affine as AffineRepr>::BaseField: PrimeField,
+        <G1 as CurveConfig>::BaseField: PrimeField,
     {
-        let alpha = E::ScalarField::rand(rng);
-        let beta = E::ScalarField::rand(rng);
+        let alpha = G1::ScalarField::rand(rng);
+        let beta = G1::ScalarField::rand(rng);
 
         // R' = R * g^{alpha} * pk^{beta}
-        let r_g_prime: E::G1 = {
-            let mut temp = self.g.mul(alpha);
+        let r_g_prime: Projective<G1> = {
+            let mut temp: Projective<G1> = self.g.mul(alpha);
             temp = temp.add(self.pk.pk.mul(beta));
             temp = temp.add(m1.r_g);
             temp
         };
 
-        let c_prime: E::ScalarField = {
-            let mut bytes = group_element_into_bytes::<E>(r_g_prime);
+        let c_prime: G1::ScalarField = {
+            let mut bytes = group_element_into_bytes::<G1>(&r_g_prime);
             bytes.extend(message);
             Hash256::hash_bytes(bytes.as_slice())
         };
@@ -66,18 +82,18 @@ impl<E: Pairing> BSVerifier<E> {
     }
 
     pub fn second_round(&self,
-                        secret_randomness: &BSVerifierSecretRandomness<E>,
-                        m1: &BSSignerFirstRoundMessage<E>,
-                        m2: &BSVerifierFirstRoundMessage<E>,
-                        m3: &BSSignerSecondRoundMessage<E>,
-    ) -> Signature<E> {
-        assert!(self.g.mul(m3.s) == m1.r_g.add(self.pk.pk.mul(m2.c)));
+                        secret_randomness: &BSVerifierSecretRandomness<G1>,
+                        m1: &BSSignerFirstRoundMessage<G1>,
+                        m2: &BSVerifierFirstRoundMessage<G1>,
+                        m3: &BSSignerSecondRoundMessage<G1>,
+    ) -> Signature<G1> {
+        assert_eq!(self.g.mul(m3.s), m1.r_g.add(self.pk.pk.mul(m2.c)));
 
         let s_prime = m3.s + secret_randomness.alpha;
 
         // R' = R * g^{alpha} * pk^{beta}
-        let r_g_prime: E::G1 = {
-            let mut temp = self.g.mul(secret_randomness.alpha);
+        let r_g_prime: Projective<G1> = {
+            let mut temp: Projective<G1> = self.g.mul(secret_randomness.alpha);
             temp = temp.add(self.pk.pk.mul(secret_randomness.beta));
             temp = temp.add(m1.r_g);
             temp
@@ -89,5 +105,4 @@ impl<E: Pairing> BSVerifier<E> {
         }
     }
 }
-
 

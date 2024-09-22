@@ -1,23 +1,38 @@
 use std::ops::Mul;
+
 use ark_ec::Group;
-use ark_ec::pairing::Pairing;
+use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+use ark_ff::PrimeField;
 use ark_std::UniformRand;
 use rand::Rng;
 
 #[derive(Clone, Debug, Default)]
-pub struct SecretKey<E: Pairing> {
-    pub sk: E::ScalarField,
+pub struct SecretKey<G1>
+where
+    G1: SWCurveConfig + Clone,
+    G1::ScalarField: PrimeField,
+{
+    pub sk: G1::ScalarField,
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct PublicKey<E: Pairing> {
-    pub pk: E::G1,
+pub struct PublicKey<G1>
+where
+    G1: SWCurveConfig + Clone,
+    G1::ScalarField: PrimeField,
+{
+    pub pk: Projective<G1>,
 }
 
-pub fn generate_key_pair<E: Pairing, R: Rng>(rng: &mut R) -> (SecretKey<E>, PublicKey<E>) {
-    let sk = E::ScalarField::rand(rng);
+pub fn generate_key_pair<G1, R>(rng: &mut R) -> (SecretKey<G1>, PublicKey<G1>)
+where
+    G1: SWCurveConfig + Clone,
+    G1::ScalarField: PrimeField,
+    R: Rng,
+{
+    let sk = G1::ScalarField::rand(rng);
     (
         SecretKey { sk },
-        PublicKey { pk: E::G1::generator().mul(sk) }
+        PublicKey { pk: Projective::generator().mul(sk) }
     )
 }
