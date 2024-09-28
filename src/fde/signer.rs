@@ -28,7 +28,8 @@ where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
 {
-    pub r: Vec<G1::ScalarField>,
+    pub r0: Vec<G1::ScalarField>,
+    pub r1: Vec<G1::ScalarField>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -37,7 +38,8 @@ where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
 {
-    pub r_g: Vec<Projective<G1>>,
+    pub r0_g: Vec<Projective<G1>>,
+    pub r1_g: Vec<Projective<G1>>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -49,6 +51,7 @@ where
     pub com_k: Projective<G1>,
     pub alpha: Vec<G1::ScalarField>,
     pub com: Vec<Projective<G1>>,
+    pub b: bool,
 }
 
 impl<G1> FDESigner<G1>
@@ -66,13 +69,15 @@ where
 
     pub fn first_round<R: Rng>(&self, rng: &mut R) -> (FDESignerSecretRandomness<G1>, FDESignerFirstRoundMessage<G1>) {
         // Sequential random generation (since rng is not thread-safe)
-        let r: Vec<G1::ScalarField> = (0..self.n).map(|_| G1::ScalarField::rand(rng)).collect();
+        let r0: Vec<G1::ScalarField> = (0..self.n).map(|_| G1::ScalarField::rand(rng)).collect();
+        let r1: Vec<G1::ScalarField> = (0..self.n).map(|_| G1::ScalarField::rand(rng)).collect();
 
         // Parallel scalar multiplication using rayon
-        let r_g: Vec<Projective<G1>> = r.par_iter().map(|r_i| self.g.mul(*r_i)).collect();
+        let r0_g: Vec<Projective<G1>> = r0.par_iter().map(|r_i| self.g.mul(*r_i)).collect();
+        let r1_g: Vec<Projective<G1>> = r1.par_iter().map(|r_i| self.g.mul(*r_i)).collect();
 
         // Return the tuple of (r, g^r)
-        (FDESignerSecretRandomness { r }, FDESignerFirstRoundMessage { r_g })
+        (FDESignerSecretRandomness { r0, r1 }, FDESignerFirstRoundMessage { r0_g, r1_g })
     }
 
     pub fn second_round<R: Rng>(&self,
@@ -80,14 +85,24 @@ where
                                 m1: &FDEVerifierFirstRoundMessage<G1>,
                                 rng: &mut R,
     ) -> FDESignerSecondRoundMessage<G1> {
+        let b = bool::rand(rng);
+
         // Random generation is kept sequential
         let k = G1::ScalarField::rand(rng);
         let com_k: Projective<G1> = self.g.mul(k);
 
+        let (r, c) = {
+            if b == true {
+                (&secret_randomness.r1, &m1.c1)
+            } else {
+                (&secret_randomness.r0, &m1.c0)
+            }
+        };
+
         // Parallelize vec_s computation
-        let vec_s: Vec<G1::ScalarField> = (0..secret_randomness.r.len())
+        let vec_s: Vec<G1::ScalarField> = (0..r.len())
             .into_par_iter()
-            .map(|i| secret_randomness.r[i] + m1.c[i] * self.sk.sk)
+            .map(|i| r[i] + c[i] * self.sk.sk)
             .collect();
 
         // Parallelize vec_g_s computation (g^s)
@@ -107,6 +122,7 @@ where
             com_k,
             alpha,
             com: vec_g_s,
+            b,
         }
     }
 }
