@@ -1,4 +1,4 @@
-use ark_bls12_381::g1::Config as Config;
+use ark_vesta::VestaConfig as Config;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use rand::thread_rng;
 

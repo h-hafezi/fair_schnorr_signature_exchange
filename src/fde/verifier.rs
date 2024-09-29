@@ -32,8 +32,10 @@ where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
 {
-    pub alpha: G1::ScalarField,
-    pub beta: G1::ScalarField,
+    pub alpha_0: G1::ScalarField,
+    pub beta_0: G1::ScalarField,
+    pub alpha_1: G1::ScalarField,
+    pub beta_1: G1::ScalarField,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -42,7 +44,8 @@ where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
 {
-    pub c: Vec<G1::ScalarField>,
+    pub c0: Vec<G1::ScalarField>,
+    pub c1: Vec<G1::ScalarField>,
 }
 
 impl<G1> FDEVerifier<G1>
@@ -66,16 +69,18 @@ where
     where
         <G1 as CurveConfig>::BaseField: PrimeField,
     {
-        let alpha = G1::ScalarField::rand(rng);
-        let beta = G1::ScalarField::rand(rng);
+        let alpha_0 = G1::ScalarField::rand(rng);
+        let beta_0 = G1::ScalarField::rand(rng);
+        let alpha_1 = G1::ScalarField::rand(rng);
+        let beta_1 = G1::ScalarField::rand(rng);
 
         // Parallelized the computation of vec_c using rayon's par_iter
-        let vec_c: Vec<G1::ScalarField> = (0..self.n).into_par_iter().map(|i| {
+        let vec_c0: Vec<G1::ScalarField> = (0..self.n).into_par_iter().map(|i| {
             // R' = R * g^{alpha} * pk^{beta}
             let r_g_prime: Projective<G1> = {
-                let mut temp = self.g.mul(alpha);
-                temp = temp.add(self.pk.pk.mul(beta));
-                temp = temp.add(m1.r_g[i]);
+                let mut temp = self.g.mul(alpha_0);
+                temp = temp.add(self.pk.pk.mul(beta_0));
+                temp = temp.add(m1.r0_g[i]);
                 temp
             };
 
@@ -85,11 +90,32 @@ where
                 Hash256::hash_bytes(bytes.as_slice())
             };
 
-            let c = c_prime + beta;
+            let c = c_prime + beta_0;
             c
         }).collect();
 
-        (FDEVerifierSecretRandomness { alpha, beta }, FDEVerifierFirstRoundMessage { c: vec_c })
+        // Parallelized the computation of vec_c using rayon's par_iter
+        let vec_c1: Vec<G1::ScalarField> = (0..self.n).into_par_iter().map(|i| {
+            // R' = R * g^{alpha} * pk^{beta}
+            let r_g_prime: Projective<G1> = {
+                let mut temp = self.g.mul(alpha_1);
+                temp = temp.add(self.pk.pk.mul(beta_1));
+                temp = temp.add(m1.r1_g[i]);
+                temp
+            };
+
+            let c_prime: G1::ScalarField = {
+                let mut bytes = group_element_into_bytes::<G1>(&r_g_prime);
+                bytes.extend(message[i].clone());
+                Hash256::hash_bytes(bytes.as_slice())
+            };
+
+            let c = c_prime + beta_1;
+            c
+        }).collect();
+
+
+        (FDEVerifierSecretRandomness { alpha_0, beta_0, alpha_1, beta_1 }, FDEVerifierFirstRoundMessage { c0: vec_c0, c1: vec_c1 })
     }
 
     pub fn second_round(&self,
@@ -98,9 +124,18 @@ where
                         m3: &FDESignerSecondRoundMessage<G1>,
     ) -> bool
     {
+        let (r_g, c) = {
+            if m3.b == true {
+                (&m1.r1_g, &m2.c1)
+            } else {
+                (&m1.r0_g, &m2.c0)
+            }
+        };
+
+        // compute a vector of boolean and add them
         let res: bool = (0..self.n).into_par_iter().map(|i| {
             // com_i = R_i * pk^c_i
-            let temp = m1.r_g[i].add(self.pk.pk.mul(m2.c[i]));
+            let temp = r_g[i].add(self.pk.pk.mul(c[i]));
             let first_check = m3.com[i] == temp;
 
             // g^a_i = (com_k * com_i)^{1/2}
