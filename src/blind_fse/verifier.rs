@@ -9,14 +9,14 @@ use rand::Rng;
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelIterator;
 
-use crate::fde::signer::{FDESignerFirstRoundMessage, FDESignerSecondRoundMessage};
+use crate::blind_fse::signer::{BFDESignerFirstRoundMessage, BFDESignerSecondRoundMessage};
 use crate::hash::Hash256;
 use crate::schnorr_signature::key::PublicKey;
 use crate::schnorr_signature::util::group_element_into_bytes;
 use crate::schnorr_signature::verifier::Verifier;
 
 #[derive(Clone, Debug, Default)]
-pub struct FDEVerifier<G1>
+pub struct BFDEVerifier<G1>
 where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
@@ -27,7 +27,7 @@ where
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct FDEVerifierSecretRandomness<G1>
+pub struct BFDEVerifierSecretRandomness<G1>
 where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
@@ -39,7 +39,7 @@ where
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct FDEVerifierFirstRoundMessage<G1>
+pub struct BFDEVerifierFirstRoundMessage<G1>
 where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
@@ -48,13 +48,13 @@ where
     pub c1: Vec<G1::ScalarField>,
 }
 
-impl<G1> FDEVerifier<G1>
+impl<G1> BFDEVerifier<G1>
 where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
 {
-    pub fn new(verifier: &Verifier<G1>, n: usize) -> FDEVerifier<G1> {
-        FDEVerifier {
+    pub fn new(verifier: &Verifier<G1>, n: usize) -> BFDEVerifier<G1> {
+        BFDEVerifier {
             pk: verifier.pk.clone(),
             g: verifier.get_generator(),
             n,
@@ -62,10 +62,10 @@ where
     }
 
     pub fn first_round<R: Rng>(&self,
-                               m1: &FDESignerFirstRoundMessage<G1>,
+                               m1: &BFDESignerFirstRoundMessage<G1>,
                                message: &Vec<Vec<u8>>,
                                rng: &mut R,
-    ) -> (FDEVerifierSecretRandomness<G1>, FDEVerifierFirstRoundMessage<G1>)
+    ) -> (BFDEVerifierSecretRandomness<G1>, BFDEVerifierFirstRoundMessage<G1>)
     where
         <G1 as CurveConfig>::BaseField: PrimeField,
     {
@@ -115,13 +115,13 @@ where
         }).collect();
 
 
-        (FDEVerifierSecretRandomness { alpha_0, beta_0, alpha_1, beta_1 }, FDEVerifierFirstRoundMessage { c0: vec_c0, c1: vec_c1 })
+        (BFDEVerifierSecretRandomness { alpha_0, beta_0, alpha_1, beta_1 }, BFDEVerifierFirstRoundMessage { c0: vec_c0, c1: vec_c1 })
     }
 
     pub fn second_round(&self,
-                        m1: &FDESignerFirstRoundMessage<G1>,
-                        m2: &FDEVerifierFirstRoundMessage<G1>,
-                        m3: &FDESignerSecondRoundMessage<G1>,
+                        m1: &BFDESignerFirstRoundMessage<G1>,
+                        m2: &BFDEVerifierFirstRoundMessage<G1>,
+                        m3: &BFDESignerSecondRoundMessage<G1>,
     ) -> bool
     {
         let (r_g, c) = {

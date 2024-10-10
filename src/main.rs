@@ -1,7 +1,7 @@
 pub mod hash;
 pub mod schnorr_signature;
 pub mod blind_schnorr_signature;
-pub mod fde;
+pub mod blind_fse;
 
 use std::mem;
 

@@ -7,12 +7,12 @@ use rand::Rng;
 use rayon::iter::ParallelIterator;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
 
-use crate::fde::verifier::FDEVerifierFirstRoundMessage;
+use crate::blind_fse::verifier::BFDEVerifierFirstRoundMessage;
 use crate::schnorr_signature::key::SecretKey;
 use crate::schnorr_signature::signer::Signer;
 
 #[derive(Clone, Debug, Default)]
-pub struct FDESigner<G1>
+pub struct BFDESigner<G1>
 where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
@@ -23,7 +23,7 @@ where
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct FDESignerSecretRandomness<G1>
+pub struct BFDESignerSecretRandomness<G1>
 where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
@@ -33,7 +33,7 @@ where
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct FDESignerFirstRoundMessage<G1>
+pub struct BFDESignerFirstRoundMessage<G1>
 where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
@@ -43,7 +43,7 @@ where
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct FDESignerSecondRoundMessage<G1>
+pub struct BFDESignerSecondRoundMessage<G1>
 where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
@@ -54,20 +54,20 @@ where
     pub b: bool,
 }
 
-impl<G1> FDESigner<G1>
+impl<G1> BFDESigner<G1>
 where
     G1: SWCurveConfig + Clone,
     G1::ScalarField: PrimeField,
 {
-    pub fn new(signer: &Signer<G1>, n: usize) -> FDESigner<G1> {
-        FDESigner {
+    pub fn new(signer: &Signer<G1>, n: usize) -> BFDESigner<G1> {
+        BFDESigner {
             sk: signer.get_secret_key(),
             g: signer.get_generator(),
             n,
         }
     }
 
-    pub fn first_round<R: Rng>(&self, rng: &mut R) -> (FDESignerSecretRandomness<G1>, FDESignerFirstRoundMessage<G1>) {
+    pub fn first_round<R: Rng>(&self, rng: &mut R) -> (BFDESignerSecretRandomness<G1>, BFDESignerFirstRoundMessage<G1>) {
         // Sequential random generation (since rng is not thread-safe)
         let r0: Vec<G1::ScalarField> = (0..self.n).map(|_| G1::ScalarField::rand(rng)).collect();
         let r1: Vec<G1::ScalarField> = (0..self.n).map(|_| G1::ScalarField::rand(rng)).collect();
@@ -77,14 +77,14 @@ where
         let r1_g: Vec<Projective<G1>> = r1.par_iter().map(|r_i| self.g.mul(*r_i)).collect();
 
         // Return the tuple of (r, g^r)
-        (FDESignerSecretRandomness { r0, r1 }, FDESignerFirstRoundMessage { r0_g, r1_g })
+        (BFDESignerSecretRandomness { r0, r1 }, BFDESignerFirstRoundMessage { r0_g, r1_g })
     }
 
     pub fn second_round<R: Rng>(&self,
-                                secret_randomness: &FDESignerSecretRandomness<G1>,
-                                m1: &FDEVerifierFirstRoundMessage<G1>,
+                                secret_randomness: &BFDESignerSecretRandomness<G1>,
+                                m1: &BFDEVerifierFirstRoundMessage<G1>,
                                 rng: &mut R,
-    ) -> FDESignerSecondRoundMessage<G1> {
+    ) -> BFDESignerSecondRoundMessage<G1> {
         let b = bool::rand(rng);
 
         // Random generation is kept sequential
@@ -118,7 +118,7 @@ where
             .collect();
 
         // Return the second round message
-        FDESignerSecondRoundMessage {
+        BFDESignerSecondRoundMessage {
             com_k,
             alpha,
             com: vec_g_s,

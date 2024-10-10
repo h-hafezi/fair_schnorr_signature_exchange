@@ -15,6 +15,6 @@ mod tests {
         let signer = Signer::new(sk);
         let verifier = Verifier::new(pk);
         let sig = signer.sign(&message.to_vec(), &mut thread_rng());
-        assert!(verifier.verify(&message.to_vec(), sig));
+        assert!(verifier.verify(&message.to_vec(), &sig));
     }
 }

@@ -27,7 +27,7 @@ mod tests {
         let m3 = bs_signer.second_round(&signer_secret_randomness, &m2);
         let signature = bs_verifier.second_round(&verifier_secret_randomness, &m1, &m2, &m3);
 
-        assert!(verifier.verify(&message.to_vec(), signature));
+        assert!(verifier.verify(&message.to_vec(), &signature));
     }
 }
 
