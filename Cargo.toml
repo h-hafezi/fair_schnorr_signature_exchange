@@ -18,4 +18,8 @@ ark-vesta = "0.4.0"
 
 [[bench]]
 harness = false
-name = "bench_fde"
+name = "bench_fse"
+
+[[bench]]
+harness = false
+name = "bench_bfse"

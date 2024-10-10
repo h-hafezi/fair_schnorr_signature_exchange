@@ -2,8 +2,8 @@
 mod tests {
     use rand::thread_rng;
 
-    use crate::fde::signer::FDESigner;
-    use crate::fde::verifier::FDEVerifier;
+    use crate::blind_fse::signer::BFDESigner;
+    use crate::blind_fse::verifier::BFDEVerifier;
     use crate::schnorr_signature::key::{generate_key_pair, PublicKey, SecretKey};
     use crate::schnorr_signature::signer::Signer;
     use crate::schnorr_signature::verifier::Verifier;
@@ -24,8 +24,8 @@ mod tests {
         let verifier = Verifier::new(pk);
 
         // blind signer/verifier
-        let fde_signer = FDESigner::new(&signer, 2);
-        let fde_verifier = FDEVerifier::new(&verifier, 2);
+        let fde_signer = BFDESigner::new(&signer, 2);
+        let fde_verifier = BFDEVerifier::new(&verifier, 2);
 
         // interaction
         let (signer_secret_randomness, m1) = fde_signer.first_round(&mut thread_rng());

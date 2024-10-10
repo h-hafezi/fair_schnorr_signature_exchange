@@ -44,7 +44,7 @@ where
         self.pk.pk.clone()
     }
 
-    pub fn verify(&self, message: &Vec<u8>, signature: Signature<G1>) -> bool
+    pub fn verify(&self, message: &Vec<u8>, signature: &Signature<G1>) -> bool
     where
         <G1 as CurveConfig>::BaseField: PrimeField,
     {

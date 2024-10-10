@@ -2,8 +2,8 @@ use ark_vesta::VestaConfig as Config;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use rand::thread_rng;
 
-use fde::fde::signer::FDESigner;
-use fde::fde::verifier::FDEVerifier;
+use fde::blind_fse::signer::BFDESigner;
+use fde::blind_fse::verifier::BFDEVerifier;
 use fde::schnorr_signature::key::{generate_key_pair, PublicKey, SecretKey};
 use fde::schnorr_signature::signer::Signer;
 use fde::schnorr_signature::verifier::Verifier;
@@ -19,12 +19,12 @@ fn benchmark_schnorr_signature(c: &mut Criterion) {
         let message = vec![[0u8, 1u8, 2u8, 3u8].to_vec(); message_len];
 
         // Blind signer/verifier
-        let fde_signer = FDESigner::new(&signer, message_len);
-        let fde_verifier = FDEVerifier::new(&verifier, message_len);
+        let fde_signer = BFDESigner::new(&signer, message_len);
+        let fde_verifier = BFDEVerifier::new(&verifier, message_len);
 
         // Benchmark fde_signer.second_round
         c.bench_with_input(
-            BenchmarkId::new("fde_signer", message_len),
+            BenchmarkId::new("bfse_signer", message_len),
             &message_len,
             |b, _| {
                 let (signer_secret_randomness, m1) = fde_signer.first_round(&mut thread_rng());
@@ -38,7 +38,7 @@ fn benchmark_schnorr_signature(c: &mut Criterion) {
 
         // Benchmark fde_verifier.second_round
         c.bench_with_input(
-            BenchmarkId::new("fde_verifier", message_len),
+            BenchmarkId::new("bfse_verifier", message_len),
             &message_len,
             |b, _| {
                 let (signer_secret_randomness, m1) = fde_signer.first_round(&mut thread_rng());
