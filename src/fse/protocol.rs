@@ -1,13 +1,14 @@
 use std::marker::PhantomData;
 use std::ops::{Add, Mul};
 
-use ark_ec::{CurveConfig, Group};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+use ark_ec::{CurveConfig, Group};
 use ark_ff::PrimeField;
 use ark_std::UniformRand;
 use rand::Rng;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator};
 use rayon::iter::ParallelIterator;
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator};
+use rayon::iter::IndexedParallelIterator;
 
 use crate::hash::Hash256;
 use crate::schnorr_signature::key::{generate_key_pair, PublicKey, SecretKey};
@@ -86,17 +87,16 @@ where
     }
 
     pub fn recover(alpha: &Vec<G1::ScalarField>, r_g: &Vec<Projective<G1>>, k: G1::ScalarField) -> Vec<Signature<G1>> {
-        let signatures: Vec<Signature<G1>> = {
-            let mut res = Vec::new();
-            for i in 0..alpha.len() {
-                let s_i = G1::ScalarField::from(2u128) * alpha[i] - k;
-                res.push(Signature {
-                    r_g: r_g[i],
+        let signatures: Vec<Signature<G1>> = alpha
+            .par_iter()
+            .zip(r_g.par_iter())
+            .map(|(&alpha_i, r_g_i)| {
+                let s_i = G1::ScalarField::from(2u128) * alpha_i - k;
+                Signature {
+                    r_g: r_g_i.clone(),
                     s: s_i,
-                });
-            }
-            res
-        };
+                }
+            }).collect();
 
         signatures
     }

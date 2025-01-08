@@ -45,7 +45,7 @@ where
         self.sk.clone()
     }
 
-    pub(crate) fn sign<R: Rng>(&self, message: &Vec<u8>, rng: &mut R) -> Signature<G1>
+    pub fn sign<R: Rng>(&self, message: &Vec<u8>, rng: &mut R) -> Signature<G1>
     where
         <G1 as CurveConfig>::BaseField: PrimeField,
     {

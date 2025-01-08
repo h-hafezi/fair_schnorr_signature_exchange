@@ -23,3 +23,7 @@ name = "bench_fse"
 [[bench]]
 harness = false
 name = "bench_bfse"
+
+[[bench]]
+harness = false
+name = "bench_schnorr"
